@@ -1,7 +1,7 @@
 import socket
 import threading, time
 from datetime import datetime
-from protocol import Packet, Protocol
+from protocol import Protocol
 import argparse
 
 protocol = Protocol()
@@ -25,6 +25,8 @@ def processConn(address, data):
             return
         
         #send data to client in packets of size MTU
+        packets, retransmissions = protocol.sendPackets(sock, data, address)
+        '''
         data_sent = 0
         leng = len(data)
         packets = 0
@@ -45,6 +47,7 @@ def processConn(address, data):
                 protocol.seq = int(not protocol.seq)
                 print(address," ACKed at ", str(datetime.now()))
                 data_sent += 1
+        '''
         sock.close()
         print("\nTransfer done.")
         print(packets, " packets transmitted.")

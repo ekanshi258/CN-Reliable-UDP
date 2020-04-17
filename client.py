@@ -1,7 +1,7 @@
 import socket
 import hashlib
 import argparse
-from protocol import Packet, Protocol
+from protocol import Protocol
 
 protocol = Protocol()
 
@@ -23,7 +23,7 @@ if __name__=="__main__":
         tryConn = 0
         filename = filename.encode()
         sock.sendto(filename, server_addr)
-        seqFlag = 0
+        protocol.seqFlag = 0
 
         while True:
             try:
@@ -40,30 +40,16 @@ if __name__=="__main__":
                     break
             
             #get all info
-            data = data.decode()
-            seq = data.split(protocol.delim)[0]
-            server_checksum = data.split(protocol.delim)[1]
-            msglen = data.split(protocol.delim)[2]
-            msg = data.split(protocol.delim)[3]
-            print(msg)
-            client_checksum = hashlib.sha1(msg.encode()).hexdigest()
-           # print(msg)
-            if server_checksum == client_checksum and seqFlag == int(seq):
-                if msg == "NSF":
-                    print("No such file found at server.")
-                    f.write("This file was not transferred correctly")
-                    break
-                else:
-                    f.write(msg)
-                    print("Seq no: ", seq, " received")
-                    sock.sendto((str(seq) + "," + str(msglen)).encode(), server_addr)
-                    seqFlag = 1-seqFlag
-            elif server_checksum == client_checksum and seqFlag != int(seq):
-                print("Duplicate, discarded")
+            seq, msglen, msg, ackstatus = protocol.readPacket(sock, data, server_addr)
+            if not ackstatus:
                 continue
+            if msg == "NSF":
+                print("No such file found at server.")
+                f.write("This file was not transferred correctly")
+                break
             else:
-                print("Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
-                continue
+                f.write(msg)
+                print("Seq no: ", seq, " received")
             if int(msglen) < protocol.getMTU():
                 seq = 1-int(seq)
                 break
