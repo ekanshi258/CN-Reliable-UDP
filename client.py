@@ -6,7 +6,7 @@ from protocol import Packet, Protocol
 protocol = Protocol()
 
 if __name__=="__main__":
-    
+    print("File transfer over reliable UDP")
     parser = argparse.ArgumentParser(description='Send and receive files on Reliable UDP')
     parser.add_argument('-ip', help='Server IP')
     parser.add_argument('-p', metavar='PORT', type=int, default = 1060, help = 'UDP port')
@@ -14,8 +14,7 @@ if __name__=="__main__":
     server_addr = (args.ip, args.p)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    protocol.changeTimeout(10)
-    sock.settimeout(protocol.timeout)
+    sock.settimeout(5)
 
     filename = input("File Requested: ")
     f = open( filename.split(".")[0] + "_client_copy." + filename.split(".")[1], 'w')
@@ -28,7 +27,7 @@ if __name__=="__main__":
 
         while True:
             try:
-                data, server_addr = sock.recvfrom(protocol.mtu + 1)
+                data, server_addr = sock.recvfrom(protocol.getMTU() + 100)
                 tryConn = 0
             except:
                 if tryConn < 4:
@@ -43,10 +42,11 @@ if __name__=="__main__":
             #get all info
             data = data.decode()
             seq = data.split(protocol.delim)[0]
-            client_checksum = hashlib.sha1(data.split(protocol.delim)[3].encode()).hexdigest()
             server_checksum = data.split(protocol.delim)[1]
             msglen = data.split(protocol.delim)[2]
             msg = data.split(protocol.delim)[3]
+            print(msg)
+            client_checksum = hashlib.sha1(msg.encode()).hexdigest()
            # print(msg)
             if server_checksum == client_checksum and seqFlag == int(seq):
                 if msg == "NSF":
@@ -55,7 +55,6 @@ if __name__=="__main__":
                     break
                 else:
                     f.write(msg)
-                    print(msg)
                     print("Seq no: ", seq, " received")
                     sock.sendto((str(seq) + "," + str(msglen)).encode(), server_addr)
                     seqFlag = 1-seqFlag
@@ -65,11 +64,11 @@ if __name__=="__main__":
             else:
                 print("Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
                 continue
-            if int(msglen) < protocol.mtu:
+            if int(msglen) < protocol.getMTU():
                 seq = 1-int(seq)
                 break
     finally:
-        print("Transferred. Done")
+        print("Done")
         sock.close()
         f.close()
 

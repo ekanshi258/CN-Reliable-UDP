@@ -9,22 +9,19 @@ protocol = Protocol()
 def processConn(address, data):
     start = time.time()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    pkt = Packet()
     try:
         try:
             f = open(data,'r')
             print(data)
             data = f.read()
-            print(data)
             f.close()
 
         except:
             print("No such file found.")
             data = "NSF"
-            pkt.makePacket(data)
-            toSendPack = str(pkt.seq) + protocol.delim + str(pkt.checksum) + protocol.delim + str(pkt.msglen) + protocol.delim + str(pkt.message)
-            toSendPack = toSendPack.encode()
-            sock.sendto(toSendPack, address)
+            ack = protocol.sendPacket(sock,data, address)
+            print("Client informed. Removing Client.")
+            sock.close()
             return
         
         #send data to client in packets of size MTU
@@ -34,34 +31,22 @@ def processConn(address, data):
         retransmissions = 0
         protocol.resetMTU()
 
-        while data_sent < (leng/protocol.mtu):
+        while data_sent < (leng/protocol.getMTU()):
             packets += 1
-            msg = data[data_sent * protocol.mtu : protocol.mtu * (data_sent + 1)]
-            pkt.makePacket(msg)
-            toSendPack = str(pkt.seq) + protocol.delim + str(pkt.checksum) + protocol.delim + str(pkt.msglen) + protocol.delim + str(pkt.message)
-            print(toSendPack)
-            #ack = protocol.sendData(sock, toSendPack, address)
-            sock.sendto(toSendPack.encode(), address)
-            sock.settimeout(4)
-            try:
-                ack, address = sock.recvfrom(100)
-                ack = ack.decode()
-            except Exception as e:
-                print(e)
-                print("Timeout. Resending...")
-                retransmissions += 1
-                continue
-            '''    
-            if ack == -1:
+            toSendPack = data[data_sent * protocol.getMTU() : protocol.getMTU() * (data_sent + 1)]
+            ack = protocol.sendPacket(sock, toSendPack, address)
+            
+            if ack == str(-1):
                 print("Timed out. Retransmitting...")
                 retransmissions += 1
                 continue
-            '''
-            if ack.split(",")[0] == str(pkt.seq):
-                pkt.seq = int(not pkt.seq)
+            
+            if ack.split(",")[0] == str(protocol.seq):
+                protocol.seq = int(not protocol.seq)
                 print(address," ACKed at ", str(datetime.now()))
                 data_sent += 1
         sock.close()
+        print("\nTransfer done.")
         print(packets, " packets transmitted.")
         print(retransmissions, " retransmissions.")
         print("Time Elapsed: ", str(time.time()-start))
@@ -70,6 +55,7 @@ def processConn(address, data):
         print("Server Error")
 
 if __name__=="__main__":
+    print("File transfer over Reliable UDP")
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     parser = argparse.ArgumentParser(description='Send and receive files on Reliable UDP')
     parser.add_argument('-ip', help='Server IP')
@@ -78,7 +64,8 @@ if __name__=="__main__":
     server.bind((args.ip, args.p))
 
     while True:
-        data, addr = server.recvfrom(600)
+        data, addr = server.recvfrom(1024)
         data = data.decode()
+        print("\n\nClient at ", addr)
         thread = threading.Thread(target=processConn, args=(addr, data))
         thread.start()
