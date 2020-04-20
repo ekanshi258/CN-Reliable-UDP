@@ -1,3 +1,4 @@
-hello. this is a file. test 2. 
-There should be more than 50 bytes.
-Guess whose back, back again.
+hello. this is a file. 
+Make sure that the size of the test files are greater than the Maximum Transmission Unit,
+so that you can see the packets being formed and the changes in the sequence numbers. 
+Ideally, try to keep it 10 packets long so that you can see the loss % working when using NetEm.

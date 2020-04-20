@@ -4,11 +4,10 @@ from datetime import datetime
 from protocol import Protocol
 import argparse
 
-protocol = Protocol()
-
 def processConn(address, data):
+    protocol = Protocol()
     start = time.time()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock = protocol.createSocket()
     try:
         try:
             f = open(data,'r')
@@ -26,28 +25,7 @@ def processConn(address, data):
         
         #send data to client in packets of size MTU
         packets, retransmissions = protocol.sendPackets(sock, data, address)
-        '''
-        data_sent = 0
-        leng = len(data)
-        packets = 0
-        retransmissions = 0
-        protocol.resetMTU()
-
-        while data_sent < (leng/protocol.getMTU()):
-            packets += 1
-            toSendPack = data[data_sent * protocol.getMTU() : protocol.getMTU() * (data_sent + 1)]
-            ack = protocol.sendPacket(sock, toSendPack, address)
-            
-            if ack == str(-1):
-                print("Timed out. Retransmitting...")
-                retransmissions += 1
-                continue
-            
-            if ack.split(",")[0] == str(protocol.seq):
-                protocol.seq = int(not protocol.seq)
-                print(address," ACKed at ", str(datetime.now()))
-                data_sent += 1
-        '''
+        
         sock.close()
         print("\nTransfer done.")
         print(packets, " packets transmitted.")
@@ -69,6 +47,6 @@ if __name__=="__main__":
     while True:
         data, addr = server.recvfrom(1024)
         data = data.decode()
-        print("\n\nClient at ", addr)
+        print("\nClient at ", addr)
         thread = threading.Thread(target=processConn, args=(addr, data))
         thread.start()

@@ -13,6 +13,11 @@ class Protocol():
     seq = 0
     msglen = 0
     checksum = 0
+    maxConnectionTrials = 5
+
+    def createSocket(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return sock
 
     def makePacket(self, info):
         self.checksum = hashlib.sha1(info.encode()).hexdigest()
@@ -93,3 +98,7 @@ class Protocol():
             print("Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
             ack = False
         return seq, msglen, msg, ack
+
+    def recvPacket(self, sock):
+        data, address = sock.recvfrom(self.__mtu + 100)
+        return self.readPacket(sock, data, address)

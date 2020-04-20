@@ -2,6 +2,7 @@ import socket
 import hashlib
 import argparse
 from protocol import Protocol
+import os
 
 protocol = Protocol()
 
@@ -13,39 +14,26 @@ if __name__=="__main__":
     args = parser.parse_args()
     server_addr = (args.ip, args.p)
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock = protocol.createSocket()
     sock.settimeout(5)
 
     filename = input("File Requested: ")
-    f = open( filename.split(".")[0] + "_client_copy." + filename.split(".")[1], 'w')
+    newfile =  filename.split(".")[0] + "_client_copy." + filename.split(".")[1]
+    f = open(newfile, 'w')
 
     try:
-        tryConn = 0
-        filename = filename.encode()
-        sock.sendto(filename, server_addr)
+        sock.sendto(filename.encode(), server_addr)
         protocol.seqFlag = 0
 
         while True:
-            try:
-                data, server_addr = sock.recvfrom(protocol.getMTU() + 100)
-                tryConn = 0
-            except:
-                if tryConn < 4:
-                    print("Connection timeout. Retrying...")
-                    tryConn += 1
-                    continue
-                else:
-                    print("Maximum connection trials reached")
-                    f.write("This file was not transferred correctly")
-                    break
-            
-            #get all info
-            seq, msglen, msg, ackstatus = protocol.readPacket(sock, data, server_addr)
+            #get packet
+            seq, msglen, msg, ackstatus = protocol.recvPacket(sock)
+            print(msg)
             if not ackstatus:
                 continue
             if msg == "NSF":
                 print("No such file found at server.")
-                f.write("This file was not transferred correctly")
+                os.remove(newfile)
                 break
             else:
                 f.write(msg)
