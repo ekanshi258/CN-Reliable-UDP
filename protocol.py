@@ -3,84 +3,100 @@ import time
 import hashlib
 from datetime import datetime
 
-
+# Protocol class, needs to be instantiated in both server and client programs.
 class Protocol():
     delim = "|::|"
-    __mtu = 50
-    timeout = 5
+    _mtu = 50          # private variable, so that it cannot be set outside the limits on the application layer
+    timeout = 1
     seqFlag = 0
-    message = 0
+    _message = 0
     seq = 0
     msglen = 0
-    checksum = 0
-    maxConnectionTrials = 5
+    _checksum = 0
 
+    def __init__(self):
+        print("---Reliable UDP protocol initiated---")
+
+
+    # Create a UDP socket
     def createSocket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         return sock
 
+    # Assign seq number, checksum, _message length to the packet
     def makePacket(self, info):
-        self.checksum = hashlib.sha1(info.encode()).hexdigest()
-        self.message = info
+        self._checksum = hashlib.sha1(info.encode()).hexdigest()
+        self._message = info
         self.msglen = len(str(info))
+        data = str(self.seq) + self.delim + str(self._checksum) + self.delim + str(self.msglen) + self.delim + str(self._message)
+        return data
     
-    def __init__(self):
-        print("---Reliable UDP protocol initiated---")
-
-    def changeMTU(self, newMTU):
-        self.__mtu = newMTU
-        if(newMTU > 65430):
-            self.__mtu = 65430
+    # Set a Maximum Transmission Unit size
+    def setMTU(self, newMTU):
+        self._mtu = newMTU
+        if newMTU > 65430:
+            self._mtu = 65435
+        if newMTU < 32:
+            self._mtu = 32
     
+    # Reset MTU to default value
     def resetMTU(self):
-        self.__mtu = 50
+        self._mtu = 50
 
+    # Get MTU value
     def getMTU(self):
-        return self.__mtu
+        return self._mtu
 
+    # reset timeout value to default
     def resetTimeout(self):
         self.timeout = 1
 
-
+    # Function to send a single packet. Recives acknowledgement as well
     def sendPacket(self, sock, data, address):
-        self.makePacket(data)
-        data = str(self.seq) + self.delim + str(self.checksum) + self.delim + str(self.msglen) + self.delim + str(self.message)
+        data = self.makePacket(data)
         data = data.encode()
         send = sock.sendto(data, address)
         print("Packet with ", send, " bytes of data sent to client at ",address)
         sock.settimeout(self.timeout)
         try:
-            ack, address = sock.recvfrom(self.__mtu)
+            ack, address = sock.recvfrom(self._mtu)
             ack = ack.decode()
             return ack
         except:
             return str(-1)
 
+    # Send data in one or more packets. Counts packets and retransmissions.
     def sendPackets(self, sock, data, address):
         data_sent = 0
         leng = len(data)
         packets = 0
         retrans = 0
         
-        while(data_sent < (leng/self.__mtu)):
+        while(data_sent < (leng/self._mtu)):
             packets+=1
-            msg = data[data_sent * self.__mtu : self.__mtu * (data_sent + 1)]
+            msg = data[data_sent * self._mtu : self._mtu * (data_sent + 1)]
             ack = self.sendPacket(sock, msg, address)
             if ack == str(-1):
                 retrans += 1
                 print("Timed out. Retransmitting (", retrans,")...")
                 continue
             
+            if ack.split(",")[0] != str(self.seq):
+                ack, address = sock.recvfrom(self._mtu)
+                ack = ack.decode()
+
             if ack.split(",")[0] == str(self.seq):
                 self.seq = int(not self.seq)
                 print(address," ACKed at ", str(datetime.now()))
                 data_sent += 1
         return packets, retrans
 
+    # send Acknowledgement
     def sendACK(self, sock, length, address):
         sock.sendto((str(self.seqFlag) + "," + str(length)).encode(), address)
         self.seqFlag = 1-self.seqFlag
 
+    # Decipher and read packet, check for corruptions/duplicates, and send ACK or drop. Return information.
     def readPacket(self, sock, data, address):
         data = data.decode()
         seq = data.split(self.delim)[0]
@@ -93,12 +109,14 @@ class Protocol():
             self.sendACK(sock, msglen, address)
         elif server_checksum == client_checksum and self.seqFlag != int(seq):
             print("Duplicate, discarded")
+            self.sendACK(sock, 0, address)
             ack = False
         else:
-            print("Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
+            print("_Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
             ack = False
         return seq, msglen, msg, ack
 
+    # receive a packet and read it
     def recvPacket(self, sock):
-        data, address = sock.recvfrom(self.__mtu + 100)
+        data, address = sock.recvfrom(self._mtu + 100)
         return self.readPacket(sock, data, address)

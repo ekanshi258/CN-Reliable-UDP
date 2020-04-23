@@ -14,12 +14,12 @@ if __name__=="__main__":
     args = parser.parse_args()
     server_addr = (args.ip, args.p)
 
-    sock = protocol.createSocket()
-    sock.settimeout(5)
-
     filename = input("File Requested: ")
     newfile =  filename.split(".")[0] + "_client_copy." + filename.split(".")[1]
     f = open(newfile, 'w')
+
+    sock = protocol.createSocket()
+    sock.settimeout(5)
 
     try:
         sock.sendto(filename.encode(), server_addr)
