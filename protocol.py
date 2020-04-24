@@ -58,12 +58,17 @@ class Protocol():
         send = sock.sendto(data, address)
         print("Packet with ", send, " bytes of data sent to client at ",address)
         sock.settimeout(self.timeout)
-        try:
-            ack, address = sock.recvfrom(self._mtu)
-            ack = ack.decode()
-            return ack
-        except:
-            return str(-1)
+        while True:
+            try:
+                ack, address = sock.recvfrom(self._mtu)
+                ack = ack.decode()
+                
+                # check if the ACK is for the correct packet.
+                if ack.split(",")[0] != str(self.seq):
+                    continue
+                return ack
+            except:
+                return str(-1)
 
     # Send data in one or more packets. Counts packets and retransmissions.
     def sendPackets(self, sock, data, address):
@@ -81,10 +86,6 @@ class Protocol():
                 print("Timed out. Retransmitting (", retrans,")...")
                 continue
             
-            if ack.split(",")[0] != str(self.seq):
-                ack, address = sock.recvfrom(self._mtu)
-                ack = ack.decode()
-
             if ack.split(",")[0] == str(self.seq):
                 self.seq = int(not self.seq)
                 print(address," ACKed at ", str(datetime.now()))
