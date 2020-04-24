@@ -6,13 +6,14 @@ from datetime import datetime
 # Protocol class, needs to be instantiated in both server and client programs.
 class Protocol():
     delim = "|::|"
-    _mtu = 50          # private variable, so that it cannot be set outside the limits on the application layer
+    _mtu = 50
     timeout = 1
     seqFlag = 0
     _message = 0
     seq = 0
     msglen = 0
     _checksum = 0
+    maxRetrans = 5
 
     def __init__(self):
         print("---Reliable UDP protocol initiated---")
@@ -62,7 +63,7 @@ class Protocol():
             try:
                 ack, address = sock.recvfrom(self._mtu)
                 ack = ack.decode()
-                
+
                 # check if the ACK is for the correct packet.
                 if ack.split(",")[0] != str(self.seq):
                     continue
@@ -76,20 +77,24 @@ class Protocol():
         leng = len(data)
         packets = 0
         retrans = 0
-        
-        while(data_sent < (leng/self._mtu)):
+        cont_retrans = 0
+        while(data_sent < (leng/self._mtu) and cont_retrans < self.maxRetrans):
             packets+=1
             msg = data[data_sent * self._mtu : self._mtu * (data_sent + 1)]
             ack = self.sendPacket(sock, msg, address)
             if ack == str(-1):
                 retrans += 1
                 print("Timed out. Retransmitting (", retrans,")...")
+                cont_retrans+=1
                 continue
             
             if ack.split(",")[0] == str(self.seq):
                 self.seq = int(not self.seq)
                 print(address," ACKed at ", str(datetime.now()))
                 data_sent += 1
+                cont_retrans = 0
+        if cont_retrans == self.maxRetrans:
+            print("Maximum limit of Continous Retransmissions reached. Closing.")
         return packets, retrans
 
     # send Acknowledgement
@@ -110,7 +115,7 @@ class Protocol():
             self.sendACK(sock, msglen, address)
         elif server_checksum == client_checksum and self.seqFlag != int(seq):
             print("Duplicate, discarded")
-            self.sendACK(sock, 0, address)
+            sock.sendto((str(seq) + "," + str(0)).encode(), address)
             ack = False
         else:
             print("_Checksum does not match. Data Corrupted. Dropping and waiting for retransmission")
