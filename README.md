@@ -16,12 +16,12 @@ These two are the server and client terminals respectively. Make sure that the A
 
 # Libraries
 The following python libraries are required:
-'''
+```
 socket
 datetime
 time
 hashlib
 argparse
 os
-'''
+```
 
