@@ -19,7 +19,7 @@ if __name__=="__main__":
     f = open(newfile, 'w')
 
     sock = protocol.createSocket()
-    sock.settimeout(5)
+    sock.settimeout(10)
 
     try:
         sock.sendto(filename.encode(), server_addr)
@@ -41,6 +41,8 @@ if __name__=="__main__":
             if int(msglen) < protocol.getMTU():
                 seq = 1-int(seq)
                 break
+    except socket.error as e:
+        print(e)
     finally:
         print("Done")
         sock.close()

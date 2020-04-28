@@ -13,7 +13,7 @@ class Protocol():
     seq = 0
     msglen = 0
     _checksum = 0
-    maxRetrans = 5
+    maxRetrans = 15
 
     def __init__(self):
         print("---Reliable UDP protocol initiated---")
@@ -68,8 +68,10 @@ class Protocol():
                 if ack.split(",")[0] != str(self.seq):
                     continue
                 return ack
-            except:
+            except socket.timeout:
                 return str(-1)
+            except:
+                return str(self.seq)+","+str(0)
 
     # Send data in one or more packets. Counts packets and retransmissions.
     def sendPackets(self, sock, data, address):
@@ -84,8 +86,8 @@ class Protocol():
             ack = self.sendPacket(sock, msg, address)
             if ack == str(-1):
                 retrans += 1
+                cont_retrans += 1
                 print("Timed out. Retransmitting (", retrans,")...")
-                cont_retrans+=1
                 continue
             
             if ack.split(",")[0] == str(self.seq):
@@ -94,7 +96,7 @@ class Protocol():
                 data_sent += 1
                 cont_retrans = 0
         if cont_retrans == self.maxRetrans:
-            print("Maximum limit of Continous Retransmissions reached. Closing.")
+            print("Maximum limit of Continous Retransmissions reached. Peer Assumed closed.")
         return packets, retrans
 
     # send Acknowledgement
