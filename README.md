@@ -25,3 +25,6 @@ argparse
 os
 ```
 
+### Declarations
+We hereby declare that we have not consulted any other teams, nor have provided help to any, and any similarity is purely coincidential due to similar logic in the protocol or possible consultations of the same internet sources for learning/debugging. 
+

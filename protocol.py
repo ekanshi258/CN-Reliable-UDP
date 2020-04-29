@@ -70,7 +70,9 @@ class Protocol():
                 return ack
             except socket.timeout:
                 return str(-1)
-            except:
+            # In case of some other unexpected error
+            except Exception as e:
+                print(e)
                 return str(self.seq)+","+str(0)
 
     # Send data in one or more packets. Counts packets and retransmissions.
